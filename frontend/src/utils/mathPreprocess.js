@@ -14,12 +14,8 @@ export function preprocessMath(text) {
   result = result.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$');
 
   // Convert [ ... ] on its own line to $$ ... $$ (display math)
-  // Only match if it contains LaTeX-like content (backslashes, ^, _, etc.)
-  result = result.replace(/^\s*\[\s*((?:[^[\]]*(?:\\[a-zA-Z]+|[\^_{}])[^[\]]*)+)\s*\]\s*$/gm, '$$$$$1$$$$');
-
-  // Convert inline ( ... ) that contains LaTeX commands to $ ... $
-  // Match ( ... ) containing backslash commands like \frac, \mid, etc.
-  result = result.replace(/\(\s*((?:[^()]*\\[a-zA-Z]+[^()]*)+)\s*\)/g, '$$$1$$');
+  // Only match if it starts with a backslash command (like \frac, \int, etc.)
+  result = result.replace(/^\s*\[\s*(\\[a-zA-Z]+[\s\S]*?)\s*\]\s*$/gm, '$$$$$1$$$$');
 
   return result;
 }
