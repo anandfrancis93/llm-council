@@ -23,4 +23,6 @@ CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Data directory for conversation storage
-DATA_DIR = "data/conversations"
+# Use /tmp on Vercel (serverless), local path otherwise
+import platform
+DATA_DIR = "/tmp/conversations" if platform.system() != "Windows" else "data/conversations"
