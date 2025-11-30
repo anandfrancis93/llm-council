@@ -99,3 +99,37 @@ body {
   border-left: 4px solid #4a90e2;
   color: #a0a0a0;
 }
+
+/* Table styling */
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 10px 12px;
+  border: 1px solid #333;
+  text-align: left;
+}
+
+.markdown-content th {
+  background: #1a1a2e;
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.markdown-content td {
+  background: #16162a;
+  color: #d0d0d0;
+}
+
+.markdown-content tr:nth-child(even) td {
+  background: #1e1e35;
+}
+
+.markdown-content tr:hover td {
+  background: #252540;
+}
