@@ -1,10 +1,10 @@
 .stage2 {
-  background: #fafafa;
+  background: #16162a;
 }
 
 .stage2 h4 {
   margin: 20px 0 8px 0;
-  color: #333;
+  color: #e0e0e0;
   font-size: 14px;
   font-weight: 600;
 }
@@ -15,22 +15,22 @@
 
 .stage-description {
   margin: 0 0 12px 0;
-  color: #666;
+  color: #888;
   font-size: 13px;
   line-height: 1.5;
 }
 
 .aggregate-rankings {
-  background: #f0f7ff;
+  background: #1e3a5f;
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 20px;
-  border: 2px solid #d0e7ff;
+  border: 2px solid #2a5a8f;
 }
 
 .aggregate-rankings h4 {
   margin: 0 0 12px 0;
-  color: #2a7ae2;
+  color: #7dd3fc;
   font-size: 15px;
 }
 
@@ -45,13 +45,13 @@
   align-items: center;
   gap: 12px;
   padding: 10px;
-  background: #ffffff;
+  background: #1a1a2e;
   border-radius: 6px;
-  border: 1px solid #d0e7ff;
+  border: 1px solid #2a5a8f;
 }
 
 .rank-position {
-  color: #2a7ae2;
+  color: #7dd3fc;
   font-weight: 700;
   font-size: 16px;
   min-width: 35px;
@@ -59,14 +59,14 @@
 
 .rank-model {
   flex: 1;
-  color: #333;
+  color: #e0e0e0;
   font-family: monospace;
   font-size: 14px;
   font-weight: 500;
 }
 
 .rank-score {
-  color: #666;
+  color: #888;
   font-size: 13px;
   font-family: monospace;
 }
@@ -80,46 +80,46 @@
 
 .stage2 .tab {
   padding: 8px 16px;
-  background: #ffffff;
-  border: 1px solid #d0d0d0;
+  background: #1a1a2e;
+  border: 1px solid #333;
   border-radius: 6px 6px 0 0;
-  color: #666;
+  color: #888;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
 }
 
 .stage2 .tab:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: #252540;
+  color: #e0e0e0;
   border-color: #4a90e2;
 }
 
 .stage2 .tab.active {
-  background: #ffffff;
+  background: #1e1e35;
   color: #4a90e2;
   border-color: #4a90e2;
-  border-bottom-color: #ffffff;
+  border-bottom-color: #1e1e35;
   font-weight: 600;
 }
 
 .stage2 .tab-content {
-  background: #ffffff;
+  background: #1e1e35;
   padding: 16px;
   border-radius: 6px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #2a2a40;
   margin-bottom: 20px;
 }
 
 .ranking-model {
-  color: #888;
+  color: #666;
   font-size: 12px;
   font-family: monospace;
   margin-bottom: 12px;
 }
 
 .ranking-content {
-  color: #333;
+  color: #d0d0d0;
   line-height: 1.6;
   font-size: 14px;
 }
@@ -127,18 +127,18 @@
 .parsed-ranking {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 2px solid #e0e0e0;
+  border-top: 2px solid #333;
 }
 
 .parsed-ranking strong {
-  color: #2a7ae2;
+  color: #7dd3fc;
   font-size: 13px;
 }
 
 .parsed-ranking ol {
   margin: 8px 0 0 0;
   padding-left: 24px;
-  color: #333;
+  color: #d0d0d0;
 }
 
 .parsed-ranking li {
@@ -148,6 +148,6 @@
 }
 
 .rank-count {
-  color: #999;
+  color: #666;
   font-size: 12px;
 }
