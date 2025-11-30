@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import { preprocessMath } from '../utils/mathPreprocess';
 import './Stage2.css';
 
 function deAnonymizeText(text, labelToModel) {
@@ -53,7 +54,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
         </div>
         <div className="ranking-content markdown-content">
           <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-            {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
+            {preprocessMath(deAnonymizeText(rankings[activeTab].ranking, labelToModel))}
           </ReactMarkdown>
         </div>
 

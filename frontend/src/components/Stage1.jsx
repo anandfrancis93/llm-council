@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import { preprocessMath } from '../utils/mathPreprocess';
 import './Stage1.css';
 
 export default function Stage1({ responses }) {
@@ -32,7 +33,7 @@ export default function Stage1({ responses }) {
       <div className="tab-content">
         <div className="model-name">{responses[activeTab].model}</div>
         <div className="response-text markdown-content">
-          <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{responses[activeTab].response}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{preprocessMath(responses[activeTab].response)}</ReactMarkdown>
         </div>
       </div>
     </div>
