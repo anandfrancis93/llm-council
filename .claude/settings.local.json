@@ -8,7 +8,8 @@
       "Bash(cmd //c \"taskkill /PID 35800 /F\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
