@@ -184,30 +184,47 @@ def parse_ranking_from_text(ranking_text: str) -> List[str]:
         ranking_text: The full text response from the model
 
     Returns:
-        List of response labels in ranked order
+        List of response labels in ranked order (unique, first occurrence only)
     """
     import re
 
-    # Look for "FINAL RANKING:" section
-    if "FINAL RANKING:" in ranking_text:
-        # Extract everything after "FINAL RANKING:"
-        parts = ranking_text.split("FINAL RANKING:")
-        if len(parts) >= 2:
-            ranking_section = parts[1]
-            # Try to extract numbered list format (e.g., "1. Response A")
-            # This pattern looks for: number, period, optional space, "Response X"
-            numbered_matches = re.findall(r'\d+\.\s*Response [A-Z]', ranking_section)
-            if numbered_matches:
-                # Extract just the "Response X" part
-                return [re.search(r'Response [A-Z]', m).group() for m in numbered_matches]
+    def get_unique_ordered(matches):
+        """Return unique matches preserving first occurrence order."""
+        seen = set()
+        result = []
+        for m in matches:
+            if m not in seen:
+                seen.add(m)
+                result.append(m)
+        return result
 
-            # Fallback: Extract all "Response X" patterns in order
-            matches = re.findall(r'Response [A-Z]', ranking_section)
-            return matches
+    # Look for "FINAL RANKING:" or "## FINAL RANKING" section
+    ranking_section = None
+    for marker in ["## FINAL RANKING", "FINAL RANKING:"]:
+        if marker in ranking_text:
+            parts = ranking_text.split(marker)
+            if len(parts) >= 2:
+                ranking_section = parts[1]
+                break
+
+    if ranking_section:
+        # Only look at the first few lines after the marker (the actual ranking)
+        lines = ranking_section.strip().split('\n')[:10]  # Limit to first 10 lines
+        ranking_section = '\n'.join(lines)
+
+        # Try to extract numbered list format (e.g., "1. Response A")
+        numbered_matches = re.findall(r'\d+\.\s*Response [A-Z]', ranking_section)
+        if numbered_matches:
+            labels = [re.search(r'Response [A-Z]', m).group() for m in numbered_matches]
+            return get_unique_ordered(labels)
+
+        # Fallback: Extract all "Response X" patterns in order
+        matches = re.findall(r'Response [A-Z]', ranking_section)
+        return get_unique_ordered(matches)
 
     # Fallback: try to find any "Response X" patterns in order
     matches = re.findall(r'Response [A-Z]', ranking_text)
-    return matches
+    return get_unique_ordered(matches)
 
 
 def calculate_aggregate_rankings(
