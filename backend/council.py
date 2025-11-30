@@ -70,33 +70,27 @@ Here are the responses from different models (anonymized):
 {responses_text}
 
 Your task:
-1. First, evaluate each response individually using bullet points. For each response, list what it does well and what it does poorly.
-2. Then, at the very end of your response, provide a final ranking.
+1. Evaluate each response individually with bullet points on SEPARATE LINES.
+2. End with a final ranking.
 
-IMPORTANT FORMAT REQUIREMENTS:
-- Use bullet points (•) for your evaluation of each response
-- Start with the line "FINAL RANKING:" (all caps, with colon) before your ranking
-- List responses from best to worst as a numbered list
-- Each ranking line should be: number, period, space, then ONLY the response label (e.g., "1. Response A")
+STRICT FORMAT - Follow this EXACTLY:
 
-Example of the correct format:
+## Response A
+- **Strengths:** [what it does well]
+- **Weaknesses:** [what it does poorly]
 
-**Response A:**
-• Strengths: Provides clear explanation of X
-• Weaknesses: Misses important detail about Y
+## Response B
+- **Strengths:** [what it does well]
+- **Weaknesses:** [what it does poorly]
 
-**Response B:**
-• Strengths: Accurate and well-structured
-• Weaknesses: Lacks depth on Z
+(continue for all responses)
 
-**Response C:**
-• Strengths: Most comprehensive coverage
-• Weaknesses: Slightly verbose
+## FINAL RANKING
+1. Response X
+2. Response Y
+3. Response Z
 
-FINAL RANKING:
-1. Response C
-2. Response A
-3. Response B
+CRITICAL: Each bullet point MUST be on its own line. Do NOT put multiple bullets on the same line.
 
 Now provide your evaluation and ranking:"""
 
