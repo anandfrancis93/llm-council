@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import './Sidebar.css';
 
 export default function Sidebar({
@@ -6,7 +5,15 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onDeleteConversation,
 }) {
+  const handleDelete = (e, convId) => {
+    e.stopPropagation(); // Prevent selecting the conversation
+    if (confirm('Are you sure you want to delete this conversation?')) {
+      onDeleteConversation(convId);
+    }
+  };
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -23,17 +30,25 @@ export default function Sidebar({
           conversations.map((conv) => (
             <div
               key={conv.id}
-              className={`conversation-item ${
-                conv.id === currentConversationId ? 'active' : ''
-              }`}
+              className={`conversation-item ${conv.id === currentConversationId ? 'active' : ''
+                }`}
               onClick={() => onSelectConversation(conv.id)}
             >
-              <div className="conversation-title">
-                Conversation {conv.id.slice(0, 8)}...
+              <div className="conversation-content">
+                <div className="conversation-title">
+                  Conversation {conv.id.slice(0, 8)}...
+                </div>
+                <div className="conversation-meta">
+                  {conv.message_count} messages
+                </div>
               </div>
-              <div className="conversation-meta">
-                {conv.message_count} messages
-              </div>
+              <button
+                className="delete-btn"
+                onClick={(e) => handleDelete(e, conv.id)}
+                title="Delete conversation"
+              >
+                🗑️
+              </button>
             </div>
           ))
         )}

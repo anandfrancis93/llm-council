@@ -35,9 +35,13 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
 
 **`storage.py`**
-- JSON-based conversation storage in `data/conversations/`
+- Dual storage backend: Redis (Vercel KV) for production, JSON files for local development
+- Auto-detects which to use based on `KV_URL` environment variable
+- Redis storage: Uses Vercel KV (Redis-compatible) with keys `conversation:{id}` and set `conversation_ids`
+- File storage: JSON files in `data/conversations/` for local development
 - Each conversation: `{id, created_at, messages[]}`
 - Assistant messages contain: `{role, stage1, stage2, stage3}`
+- Supports delete operation for both backends
 - Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
 
 **`main.py`**

@@ -22,7 +22,22 @@ CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Data directory for conversation storage
-# Use /tmp on Vercel (serverless), local path otherwise
+# Environment detection
 IS_VERCEL = os.getenv("VERCEL") == "1"
-DATA_DIR = "/tmp/conversations" if IS_VERCEL else "data/conversations"
+
+# Redis/Upstash configuration for persistent storage
+# Supports both Vercel KV and Upstash environment variable names
+# Priority: KV_URL > UPSTASH_REDIS_REST_URL > KV_REST_API_URL
+
+# Direct Redis URL (preferred - works with both Vercel KV and Upstash)
+KV_URL = os.getenv("KV_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
+
+# REST API credentials (alternative method)
+KV_REST_API_URL = os.getenv("KV_REST_API_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
+KV_REST_API_TOKEN = os.getenv("KV_REST_API_TOKEN") or os.getenv("UPSTASH_REDIS_REST_TOKEN")
+
+# Use Redis if any Redis URL is available, otherwise fallback to file storage
+USE_REDIS = bool(KV_URL or KV_REST_API_URL)
+
+# Data directory for file-based storage (local development fallback)
+DATA_DIR = "data/conversations"
