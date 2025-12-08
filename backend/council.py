@@ -308,18 +308,54 @@ def calculate_aggregate_rankings(
     return aggregate
 
 
+def _get_best_stage1_response(
+    stage1_results: List[Dict[str, Any]], 
+    aggregate_rankings: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Get the best Stage 1 response based on rankings, or first response as fallback.
+    """
+    if aggregate_rankings and stage1_results:
+        # Get the top-ranked model
+        best_model = aggregate_rankings[0]["model"]
+        for result in stage1_results:
+            if result["model"] == best_model:
+                return {
+                    "model": best_model,
+                    "response": f"*[Chairman unavailable - showing top-ranked response from {best_model.split('/')[-1]}]*\n\n{result['response']}",
+                    "fallback": True
+                }
+    
+    # Fallback to first response
+    if stage1_results:
+        first = stage1_results[0]
+        return {
+            "model": first["model"],
+            "response": f"*[Chairman unavailable - showing response from {first['model'].split('/')[-1]}]*\n\n{first['response']}",
+            "fallback": True
+        }
+    
+    return {
+        "model": "error",
+        "response": "No responses available.",
+        "error": True
+    }
+
+
 async def _run_council_stages(user_query: str) -> Tuple[List, List, Dict, Dict]:
     """
     Internal function that runs all council stages.
-    This is wrapped by run_full_council with timeout protection.
+    Designed to ALWAYS return something useful - never fails completely.
     """
     all_errors = []
     
     # Stage 1: Collect individual responses
+    print("[Council] Starting Stage 1...")
     stage1_results, stage1_errors = await stage1_collect_responses(user_query)
     all_errors.extend(stage1_errors)
+    print(f"[Council] Stage 1 complete: {len(stage1_results)} responses, {len(stage1_errors)} errors")
 
-    # If no models responded successfully, return error immediately
+    # If no models responded successfully, we still need to return something
     if not stage1_results:
         error_details = ", ".join([f"{e['model']}: {e['message']}" for e in stage1_errors]) if stage1_errors else "Unknown error"
         return [], [], {
@@ -328,9 +364,11 @@ async def _run_council_stages(user_query: str) -> Tuple[List, List, Dict, Dict]:
             "error": True
         }, {"errors": all_errors}
 
-    # Stage 2: Collect rankings
+    # Stage 2: Collect rankings (optional - proceed even if all fail)
+    print("[Council] Starting Stage 2...")
     stage2_results, label_to_model, stage2_errors = await stage2_collect_rankings(user_query, stage1_results)
     all_errors.extend(stage2_errors)
+    print(f"[Council] Stage 2 complete: {len(stage2_results)} rankings, {len(stage2_errors)} errors")
 
     # Calculate aggregate rankings (only if we have stage2 results)
     aggregate_rankings = []
@@ -338,13 +376,20 @@ async def _run_council_stages(user_query: str) -> Tuple[List, List, Dict, Dict]:
         aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
     # Stage 3: Synthesize final answer
+    print("[Council] Starting Stage 3 (Chairman)...")
     stage3_result, stage3_error = await stage3_synthesize_final(
         user_query,
         stage1_results,
         stage2_results
     )
+    
+    # If Chairman failed, use the best Stage 1 response as fallback
     if stage3_error:
         all_errors.append(stage3_error)
+        print(f"[Council] Chairman failed, using fallback from Stage 1")
+        stage3_result = _get_best_stage1_response(stage1_results, aggregate_rankings)
+    else:
+        print("[Council] Stage 3 complete")
 
     # Prepare metadata with errors
     metadata = {
@@ -359,7 +404,12 @@ async def _run_council_stages(user_query: str) -> Tuple[List, List, Dict, Dict]:
 
 async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     """
-    Run the complete 3-stage council process with timeout protection.
+    Run the complete 3-stage council process.
+    
+    GUARANTEE: This function will ALWAYS return a usable response.
+    - If Chairman fails, returns best-ranked Stage 1 response
+    - If Stage 2 fails, still returns Chairman or first Stage 1 response
+    - Only fails if ALL Stage 1 models fail
 
     Args:
         user_query: The user's question
@@ -369,22 +419,52 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
         Metadata includes 'errors' list if any models failed
     """
     try:
-        # Apply overall timeout to prevent indefinite hanging
+        # Apply overall timeout, but with graceful fallback
         return await asyncio.wait_for(
             _run_council_stages(user_query),
             timeout=COUNCIL_TIMEOUT
         )
     except asyncio.TimeoutError:
-        # Overall timeout exceeded - return error
-        print(f"[Council] Overall timeout of {COUNCIL_TIMEOUT}s exceeded!")
+        # Overall timeout exceeded - but we should still try to return SOMETHING
+        print(f"[Council] Overall timeout of {COUNCIL_TIMEOUT}s exceeded! Attempting emergency response...")
+        
+        # Try a quick single-model query as emergency fallback
+        try:
+            from .openrouter import query_model_with_retry
+            emergency_response = await asyncio.wait_for(
+                query_model_with_retry(
+                    CHAIRMAN_MODEL,
+                    [{"role": "user", "content": user_query}],
+                    timeout=30.0  # Short timeout for emergency
+                ),
+                timeout=35.0
+            )
+            
+            if emergency_response.get("success"):
+                print("[Council] Emergency single-model response succeeded")
+                return [], [], {
+                    "model": CHAIRMAN_MODEL,
+                    "response": f"*[Council timed out - emergency single-model response]*\n\n{emergency_response.get('content', '')}",
+                    "fallback": True
+                }, {
+                    "errors": [{
+                        "model": "council",
+                        "error_type": "timeout",
+                        "message": f"Council timeout ({COUNCIL_TIMEOUT}s), fell back to single model"
+                    }]
+                }
+        except Exception as e:
+            print(f"[Council] Emergency fallback also failed: {e}")
+        
+        # True failure - nothing worked
         return [], [], {
             "model": "error",
-            "response": f"⚠️ The council deliberation timed out after {int(COUNCIL_TIMEOUT)} seconds.\n\nThis usually happens when one or more models are experiencing high load. Please try again.",
+            "response": f"⚠️ The council timed out after {int(COUNCIL_TIMEOUT)} seconds, and emergency fallback also failed.\n\nPlease try again with a simpler question.",
             "error": True
         }, {
             "errors": [{
                 "model": "council",
                 "error_type": "timeout",
-                "message": f"Overall council timeout ({COUNCIL_TIMEOUT}s) exceeded"
+                "message": f"Overall council timeout ({COUNCIL_TIMEOUT}s) exceeded, emergency fallback failed"
             }]
         }
