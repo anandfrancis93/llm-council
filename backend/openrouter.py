@@ -24,7 +24,7 @@ class ModelError:
 async def query_model_with_retry(
     model: str,
     messages: List[Dict[str, str]],
-    timeout: float = 120.0,  # 2 minutes - these frontier models are slow
+    timeout: float = None,  # No timeout - wait forever
     max_retries: int = 2,
     base_delay: float = 1.0
 ) -> Dict[str, Any]:

@@ -5,14 +5,11 @@ from typing import List, Dict, Any, Tuple, Optional
 from .openrouter import query_models_parallel, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
-# NO overall timeout - we wait as long as needed to get a response
-# The user PAID for these API calls, they should get output
-COUNCIL_TIMEOUT = None  # Disabled
-
-# Per-stage timeouts - very generous to let slow models complete
-STAGE1_TIMEOUT = 120.0  # 2 minutes per model
-STAGE2_TIMEOUT = 120.0  # 2 minutes per model  
-STAGE3_TIMEOUT = 120.0  # 2 minutes for chairman
+# NO TIMEOUTS - wait forever until we get a response
+COUNCIL_TIMEOUT = None
+STAGE1_TIMEOUT = None
+STAGE2_TIMEOUT = None
+STAGE3_TIMEOUT = None
 
 
 async def stage1_collect_responses(user_query: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
