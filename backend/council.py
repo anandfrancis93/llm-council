@@ -7,12 +7,13 @@ from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
 # Overall timeout for the entire council process (in seconds)
 # This prevents indefinite hanging even if individual models behave poorly
-COUNCIL_TIMEOUT = 90.0
+# 180s = 3 minutes, reasonable for 9 API calls across 3 stages
+COUNCIL_TIMEOUT = 180.0
 
-# Per-stage timeouts
-STAGE1_TIMEOUT = 45.0  # Initial responses
-STAGE2_TIMEOUT = 45.0  # Rankings (longer prompts)
-STAGE3_TIMEOUT = 45.0  # Chairman synthesis
+# Per-stage timeouts (models run in parallel within each stage)
+STAGE1_TIMEOUT = 60.0  # Initial responses - 4 parallel calls
+STAGE2_TIMEOUT = 60.0  # Rankings (longer prompts) - 4 parallel calls
+STAGE3_TIMEOUT = 60.0  # Chairman synthesis - 1 call
 
 
 async def stage1_collect_responses(user_query: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
