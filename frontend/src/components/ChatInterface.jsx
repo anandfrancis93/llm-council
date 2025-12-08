@@ -8,6 +8,7 @@ import { preprocessMath } from '../utils/mathPreprocess';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import ErrorBanner from './ErrorBanner';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -76,6 +77,9 @@ export default function ChatInterface({
               ) : (
                 <div className="assistant-message">
                   <div className="message-label">LLM Council</div>
+                  {msg.metadata?.errors && (
+                    <ErrorBanner errors={msg.metadata.errors} />
+                  )}
                   <Stage1 responses={msg.stage1} />
                   <Stage2
                     rankings={msg.stage2}

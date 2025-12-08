@@ -1,0 +1,99 @@
+.error-banner {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe0b2 100%);
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.error-summary {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.error-summary:hover {
+  background: rgba(255, 193, 7, 0.2);
+}
+
+.error-icon {
+  font-size: 1.2rem;
+  margin-right: 10px;
+}
+
+.error-text {
+  flex: 1;
+  color: #856404;
+  font-weight: 500;
+}
+
+.expand-button {
+  background: none;
+  border: none;
+  color: #856404;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+.error-details {
+  border-top: 1px solid rgba(255, 193, 7, 0.3);
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.error-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.error-item:last-child {
+  border-bottom: none;
+}
+
+.error-type-icon {
+  width: 24px;
+  text-align: center;
+}
+
+.error-model {
+  font-weight: 600;
+  color: #333;
+  margin: 0 8px;
+  min-width: 100px;
+}
+
+.error-message {
+  color: #666;
+  flex: 1;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .error-banner {
+    background: linear-gradient(135deg, #4a3f00 0%, #5a4a20 100%);
+    border-color: #856404;
+  }
+
+  .error-text,
+  .expand-button {
+    color: #ffc107;
+  }
+
+  .error-details {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .error-model {
+    color: #f8f9fa;
+  }
+
+  .error-message {
+    color: #adb5bd;
+  }
+}

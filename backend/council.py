@@ -1,11 +1,21 @@
 """3-stage LLM Council orchestration."""
 
-from typing import List, Dict, Any, Tuple
+import asyncio
+from typing import List, Dict, Any, Tuple, Optional
 from .openrouter import query_models_parallel, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
+# Overall timeout for the entire council process (in seconds)
+# This prevents indefinite hanging even if individual models behave poorly
+COUNCIL_TIMEOUT = 90.0
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+# Per-stage timeouts
+STAGE1_TIMEOUT = 45.0  # Initial responses
+STAGE2_TIMEOUT = 45.0  # Rankings (longer prompts)
+STAGE3_TIMEOUT = 45.0  # Chairman synthesis
+
+
+async def stage1_collect_responses(user_query: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Stage 1: Collect individual responses from all council models.
 
@@ -13,29 +23,38 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
         user_query: The user's question
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        Tuple of (results list, errors list)
+        - Results: List of dicts with 'model' and 'response' keys
+        - Errors: List of dicts with 'model', 'error_type', and 'message' keys
     """
     messages = [{"role": "user", "content": user_query}]
 
-    # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    # Query all models in parallel with stage-specific timeout
+    responses = await query_models_parallel(COUNCIL_MODELS, messages, timeout=STAGE1_TIMEOUT)
 
-    # Format results
+    # Format results and collect errors
     stage1_results = []
+    stage1_errors = []
+    
     for model, response in responses.items():
-        if response is not None:  # Only include successful responses
+        if response.get("success"):
             stage1_results.append({
                 "model": model,
                 "response": response.get('content', '')
             })
+        else:
+            # Track the error
+            error_info = response.get("error", {"model": model, "error_type": "unknown", "message": "Unknown error"})
+            stage1_errors.append(error_info)
+            print(f"[Stage 1] {model} failed: {error_info.get('message', 'Unknown error')}")
 
-    return stage1_results
+    return stage1_results, stage1_errors
 
 
 async def stage2_collect_rankings(
     user_query: str,
     stage1_results: List[Dict[str, Any]]
-) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+) -> Tuple[List[Dict[str, Any]], Dict[str, str], List[Dict[str, Any]]]:
     """
     Stage 2: Each model ranks the anonymized responses.
 
@@ -44,7 +63,7 @@ async def stage2_collect_rankings(
         stage1_results: Results from Stage 1
 
     Returns:
-        Tuple of (rankings list, label_to_model mapping)
+        Tuple of (rankings list, label_to_model mapping, errors list)
     """
     # Create anonymized labels for responses (Response A, Response B, etc.)
     labels = [chr(65 + i) for i in range(len(stage1_results))]  # A, B, C, ...
@@ -96,13 +115,15 @@ Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
 
-    # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    # Get rankings from all council models in parallel with stage-specific timeout
+    responses = await query_models_parallel(COUNCIL_MODELS, messages, timeout=STAGE2_TIMEOUT)
 
-    # Format results
+    # Format results and collect errors
     stage2_results = []
+    stage2_errors = []
+    
     for model, response in responses.items():
-        if response is not None:
+        if response.get("success"):
             full_text = response.get('content', '')
             parsed = parse_ranking_from_text(full_text)
             stage2_results.append({
@@ -110,15 +131,20 @@ Now provide your evaluation and ranking:"""
                 "ranking": full_text,
                 "parsed_ranking": parsed
             })
+        else:
+            # Track the error
+            error_info = response.get("error", {"model": model, "error_type": "unknown", "message": "Unknown error"})
+            stage2_errors.append(error_info)
+            print(f"[Stage 2] {model} failed: {error_info.get('message', 'Unknown error')}")
 
-    return stage2_results, label_to_model
+    return stage2_results, label_to_model, stage2_errors
 
 
 async def stage3_synthesize_final(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
     stage2_results: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
     """
     Stage 3: Chairman synthesizes final response.
 
@@ -128,8 +154,12 @@ async def stage3_synthesize_final(
         stage2_results: Rankings from Stage 2
 
     Returns:
-        Dict with 'model' and 'response' keys
+        Tuple of (result dict, error dict or None)
+        - Result: Dict with 'model' and 'response' keys
+        - Error: Dict with error info if chairman failed, None otherwise
     """
+    from .openrouter import query_model_with_retry
+    
     # Build comprehensive context for chairman
     stage1_text = "\n\n".join([
         f"Model: {result['model']}\nResponse: {result['response']}"
@@ -160,20 +190,23 @@ Provide a clear, well-reasoned final answer that represents the council's collec
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
-    # Query the chairman model
-    response = await query_model(CHAIRMAN_MODEL, messages)
+    # Query the chairman model with explicit timeout
+    response = await query_model_with_retry(CHAIRMAN_MODEL, messages, timeout=STAGE3_TIMEOUT)
 
-    if response is None:
-        # Fallback if chairman fails
+    if not response.get("success"):
+        # Return error info
+        error_info = response.get("error", {"model": CHAIRMAN_MODEL, "error_type": "unknown", "message": "Unknown error"})
+        print(f"[Stage 3] Chairman {CHAIRMAN_MODEL} failed: {error_info.get('message', 'Unknown error')}")
         return {
             "model": CHAIRMAN_MODEL,
-            "response": "Error: Unable to generate final synthesis."
-        }
+            "response": f"⚠️ Chairman failed to synthesize: {error_info.get('message', 'Unknown error')}. Please review Stage 1 responses directly.",
+            "error": True
+        }, error_info
 
     return {
         "model": CHAIRMAN_MODEL,
         "response": response.get('content', '')
-    }
+    }, None
 
 
 def parse_ranking_from_text(ranking_text: str) -> List[str]:
@@ -274,43 +307,83 @@ def calculate_aggregate_rankings(
     return aggregate
 
 
+async def _run_council_stages(user_query: str) -> Tuple[List, List, Dict, Dict]:
+    """
+    Internal function that runs all council stages.
+    This is wrapped by run_full_council with timeout protection.
+    """
+    all_errors = []
+    
+    # Stage 1: Collect individual responses
+    stage1_results, stage1_errors = await stage1_collect_responses(user_query)
+    all_errors.extend(stage1_errors)
+
+    # If no models responded successfully, return error immediately
+    if not stage1_results:
+        error_details = ", ".join([f"{e['model']}: {e['message']}" for e in stage1_errors]) if stage1_errors else "Unknown error"
+        return [], [], {
+            "model": "error",
+            "response": f"⚠️ All models failed to respond in Stage 1.\n\n**Errors:**\n{error_details}\n\nPlease try again.",
+            "error": True
+        }, {"errors": all_errors}
+
+    # Stage 2: Collect rankings
+    stage2_results, label_to_model, stage2_errors = await stage2_collect_rankings(user_query, stage1_results)
+    all_errors.extend(stage2_errors)
+
+    # Calculate aggregate rankings (only if we have stage2 results)
+    aggregate_rankings = []
+    if stage2_results:
+        aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
+
+    # Stage 3: Synthesize final answer
+    stage3_result, stage3_error = await stage3_synthesize_final(
+        user_query,
+        stage1_results,
+        stage2_results
+    )
+    if stage3_error:
+        all_errors.append(stage3_error)
+
+    # Prepare metadata with errors
+    metadata = {
+        "label_to_model": label_to_model,
+        "aggregate_rankings": aggregate_rankings,
+        "errors": all_errors if all_errors else None,
+        "partial_failure": len(all_errors) > 0
+    }
+
+    return stage1_results, stage2_results, stage3_result, metadata
+
+
 async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     """
-    Run the complete 3-stage council process.
+    Run the complete 3-stage council process with timeout protection.
 
     Args:
         user_query: The user's question
 
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
+        Metadata includes 'errors' list if any models failed
     """
-    # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query)
-
-    # If no models responded successfully, return error
-    if not stage1_results:
+    try:
+        # Apply overall timeout to prevent indefinite hanging
+        return await asyncio.wait_for(
+            _run_council_stages(user_query),
+            timeout=COUNCIL_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        # Overall timeout exceeded - return error
+        print(f"[Council] Overall timeout of {COUNCIL_TIMEOUT}s exceeded!")
         return [], [], {
             "model": "error",
-            "response": "All models failed to respond. Please try again."
-        }, {}
-
-    # Stage 2: Collect rankings
-    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
-
-    # Calculate aggregate rankings
-    aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-
-    # Stage 3: Synthesize final answer
-    stage3_result = await stage3_synthesize_final(
-        user_query,
-        stage1_results,
-        stage2_results
-    )
-
-    # Prepare metadata
-    metadata = {
-        "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings
-    }
-
-    return stage1_results, stage2_results, stage3_result, metadata
+            "response": f"⚠️ The council deliberation timed out after {int(COUNCIL_TIMEOUT)} seconds.\n\nThis usually happens when one or more models are experiencing high load. Please try again.",
+            "error": True
+        }, {
+            "errors": [{
+                "model": "council",
+                "error_type": "timeout",
+                "message": f"Overall council timeout ({COUNCIL_TIMEOUT}s) exceeded"
+            }]
+        }
