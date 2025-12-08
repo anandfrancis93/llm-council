@@ -5,15 +5,14 @@ from typing import List, Dict, Any, Tuple, Optional
 from .openrouter import query_models_parallel, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
-# Overall timeout for the entire council process (in seconds)
-# This prevents indefinite hanging even if individual models behave poorly
-# 180s = 3 minutes, reasonable for 9 API calls across 3 stages
-COUNCIL_TIMEOUT = 180.0
+# NO overall timeout - we wait as long as needed to get a response
+# The user PAID for these API calls, they should get output
+COUNCIL_TIMEOUT = None  # Disabled
 
-# Per-stage timeouts (models run in parallel within each stage)
-STAGE1_TIMEOUT = 60.0  # Initial responses - 4 parallel calls
-STAGE2_TIMEOUT = 60.0  # Rankings (longer prompts) - 4 parallel calls
-STAGE3_TIMEOUT = 60.0  # Chairman synthesis - 1 call
+# Per-stage timeouts - very generous to let slow models complete
+STAGE1_TIMEOUT = 120.0  # 2 minutes per model
+STAGE2_TIMEOUT = 120.0  # 2 minutes per model  
+STAGE3_TIMEOUT = 120.0  # 2 minutes for chairman
 
 
 async def stage1_collect_responses(user_query: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
@@ -410,6 +409,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     - If Chairman fails, returns best-ranked Stage 1 response
     - If Stage 2 fails, still returns Chairman or first Stage 1 response
     - Only fails if ALL Stage 1 models fail
+    
+    NO OVERALL TIMEOUT - we wait as long as needed. User paid for these API calls.
 
     Args:
         user_query: The user's question
@@ -418,53 +419,7 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
         Metadata includes 'errors' list if any models failed
     """
-    try:
-        # Apply overall timeout, but with graceful fallback
-        return await asyncio.wait_for(
-            _run_council_stages(user_query),
-            timeout=COUNCIL_TIMEOUT
-        )
-    except asyncio.TimeoutError:
-        # Overall timeout exceeded - but we should still try to return SOMETHING
-        print(f"[Council] Overall timeout of {COUNCIL_TIMEOUT}s exceeded! Attempting emergency response...")
-        
-        # Try a quick single-model query as emergency fallback
-        try:
-            from .openrouter import query_model_with_retry
-            emergency_response = await asyncio.wait_for(
-                query_model_with_retry(
-                    CHAIRMAN_MODEL,
-                    [{"role": "user", "content": user_query}],
-                    timeout=30.0  # Short timeout for emergency
-                ),
-                timeout=35.0
-            )
-            
-            if emergency_response.get("success"):
-                print("[Council] Emergency single-model response succeeded")
-                return [], [], {
-                    "model": CHAIRMAN_MODEL,
-                    "response": f"*[Council timed out - emergency single-model response]*\n\n{emergency_response.get('content', '')}",
-                    "fallback": True
-                }, {
-                    "errors": [{
-                        "model": "council",
-                        "error_type": "timeout",
-                        "message": f"Council timeout ({COUNCIL_TIMEOUT}s), fell back to single model"
-                    }]
-                }
-        except Exception as e:
-            print(f"[Council] Emergency fallback also failed: {e}")
-        
-        # True failure - nothing worked
-        return [], [], {
-            "model": "error",
-            "response": f"⚠️ The council timed out after {int(COUNCIL_TIMEOUT)} seconds, and emergency fallback also failed.\n\nPlease try again with a simpler question.",
-            "error": True
-        }, {
-            "errors": [{
-                "model": "council",
-                "error_type": "timeout",
-                "message": f"Overall council timeout ({COUNCIL_TIMEOUT}s) exceeded, emergency fallback failed"
-            }]
-        }
+    # No overall timeout - just run the stages
+    # Each stage has its own per-model timeouts
+    return await _run_council_stages(user_query)
+
